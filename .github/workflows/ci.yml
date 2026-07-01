@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-html:
+    name: Validate HTML files
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Show the files that are part of CI
+        shell: pwsh
+        run: |
+          # This makes the workflow easier to understand in the Actions log.
+          Get-ChildItem -File -Path . -Filter *.html | Select-Object Name, Length
+
+      - name: Verify the HTML pages are present and not empty
+        shell: pwsh
+        run: |
+          # CI should fail fast if the site files are missing or blank.
+          $htmlFiles = Get-ChildItem -File -Path . -Filter *.html
+
+          if (-not $htmlFiles) {
+            throw "No HTML files were found in the repository root."
+          }
+
+          foreach ($file in $htmlFiles) {
+            $content = Get-Content -Path $file.FullName -Raw
+
+            if ([string]::IsNullOrWhiteSpace($content)) {
+              throw "File is empty: $($file.Name)"
+            }
+
+            if ($content -notmatch '<html') {
+              throw "File does not look like an HTML page: $($file.Name)"
+            }
+          }
+
+      - name: CI summary
+        shell: pwsh
+        run: |
+          # A short success message makes the purpose of the job obvious.
+          Write-Host "HTML validation passed."
